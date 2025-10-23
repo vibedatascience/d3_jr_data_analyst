@@ -2,6 +2,7 @@
   "name": "d3-visualization-chatbot",
   "version": "1.0.0",
   "description": "AI chatbot that creates D3.js visualizations in real-time using Claude API",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
