@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D3.js Visualization Chatbot</title>
+
+  <!-- D3.js Library -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Scrollama.js for scrollytelling (Pudding.cool style) -->
+  <script src="https://unpkg.com/intersection-observer@0.12.2/intersection-observer.js"></script>
+  <script src="https://unpkg.com/scrollama@3.2.0/build/scrollama.min.js"></script>
+
+  <style>
+    :root {
+      --chat-font-size: 14px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f6f2e8;
+      color: #2e2a24;
+      min-height: 100vh;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .app-wrapper {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fdfaf3;
+      border-bottom: 1px solid #e6dcc8;
+      padding: 12px 16px;
+      box-shadow: 0 2px 8px rgba(40, 30, 15, 0.05);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 18px;
+      color: #2e2a24;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f26532;
+      color: #fdfaf3;
+      font-size: 18px;
+    }
+
+    .brand-name {
+      letter-spacing: 0.4px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Mode Toggle Styling */
+    .mode-toggle {
+      display: flex;
+      gap: 4px;
+      background: #f0ebe0;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid #e6dcc8;
+    }
+
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: #6f614c;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .mode-btn:hover {
+      background: rgba(242, 101, 50, 0.1);
+      color: #f26532;
+    }
+
+    .mode-btn.active {
+      background: white;
+      color: #f26532;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .mode-btn.active .mode-icon {
+      transform: scale(1.1);
+    }
+
+    .mode-icon {
+      font-size: 16px;
+      transition: transform 0.2s;
+    }
+
+    .mode-label {
+      font-weight: 600;
+    }
+
+    /* Mode indicator in chat */
+    .mode-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: rgba(242, 101, 50, 0.1);
+      border: 1px solid rgba(242, 101, 50, 0.2);
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #f26532;
+      margin-bottom: 8px;
+    }
+
+    .example-prompts {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .example-prompt {
+      padding: 6px 12px;
+      background: #fff3e5;
+      border: 1px solid #f2d2b1;
+      color: #f26532;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .example-prompt:hover {
+      background: #f26532;
+      color: white;
+      transform: scale(1.05);
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      gap: 0;
+      background: #fdfaf3;
+      border-top: 1px solid #e6dcc8;
+      padding: 0;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Visualization Section */
+    .viz-section {
+      flex: 0 0 65%;
+      background: #fffdf7;
+      border-right: 1px solid #e6dcc8;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-width: 320px;
+    }
+
+    .pane-resizer {
+      flex: 0 0 12px;
+      width: 12px;
+      height: 100%;
+      cursor: col-resize;
+      background: linear-gradient(180deg, rgba(230, 220, 200, 0), rgba(230, 220, 200, 0.8), rgba(230, 220, 200, 0));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pane-resizer::before {
+      content: '';
+      width: 2px;
+      height: 48px;
+      border-radius: 999px;
+      background: #d8c8aa;
+    }
+
+    .viz-header {
+      background: #f8f4eb;
+      color: #2e2a24;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e6dcc8;
+      font-weight: 600;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-export {
+      background: #e8f5f3;
+      border: 1px solid #b8ddd8;
+      color: #379A8B;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-export:hover {
+      background: #379A8B;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(55, 154, 139, 0.2);
+    }
+
+    .btn-fullscreen {
+      background: #fff3e5;
+      border: 1px solid #f2d2b1;
+      color: #f26532;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-fullscreen:hover {
+      background: #f26532;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(242, 101, 50, 0.2);
+    }
+
+
+    .viz-section.fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      flex: none;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .viz-section.fullscreen #viz {
+      height: calc(100vh - 50px);
+    }
+
+    #viz {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+      display: block;
+      background: #f4efe3;
+      width: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+    }
+
+    /* Let D3 code control sizing - don't force dimensions */
+    #viz > * {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* For dashboard grids, ensure proper sizing */
+    #viz[style*="grid"] {
+      display: grid !important;
+    }
+
+    .viz-placeholder {
+      text-align: center;
+      color: #8a7860;
+      font-size: 16px;
+      padding: 40px 20px;
+      flex: 0 0 auto;
+    }
+
+    .viz-placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    /* Chat Sidebar */
+    .chat-sidebar {
+      flex: 0 0 35%;
+      background: #fffdf7;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 260px;
+    }
+
+    .chat-header {
+      background: #f8f4eb;
+      color: #2e2a24;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e6dcc8;
+    }
+
+    .chat-header h3 {
+      font-size: 18px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .chat-subtitle {
+      font-size: 13px;
+      color: #8a7860;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 0;
+      overflow-y: auto;
+      background: #fdfaf3;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .welcome-message {
+      text-align: left;
+      padding: 16px 18px;
+      color: #8a7860;
+      border-bottom: 1px solid rgba(214, 200, 170, 0.4);
+      line-height: 1.6;
+    }
+
+    .welcome-message h2 {
+      color: #2e2a24;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .message {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(214, 200, 170, 0.4);
+      animation: fadeIn 0.3s ease-in;
+      color: #2e2a24;
+      flex-wrap: wrap;
+    }
+
+    .message:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message::before {
+      font-size: 18px;
+      line-height: 1;
+      margin-top: 4px;
+    }
+
+    .message-user::before {
+      content: '👤';
+    }
+
+    .message-assistant::before {
+      content: '✨';
+    }
+
+    .message-content {
+      max-width: 100%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      word-wrap: break-word;
+      border: 1px solid #e6dcc8;
+      background: white;
+      font-size: var(--chat-font-size);
+      line-height: 1.6;
+    }
+
+    .message-user .message-content {
+      background: #fff3e5;
+      border-color: #f2d2b1;
+    }
+
+    .message-assistant .message-content {
+      background: #ffffff;
+      border-color: #e6dcc8;
+    }
+
+    /* Markdown styles in messages */
+    .message-content h1,
+    .message-content h2,
+    .message-content h3 {
+      margin-top: 12px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2e2a24;
+    }
+
+    .message-content h1 { font-size: 1.4em; }
+    .message-content h2 { font-size: 1.2em; }
+    .message-content h3 { font-size: 1.1em; }
+
+    .message-content p {
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+
+    .message-content ul,
+    .message-content ol {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .message-content li {
+      margin: 4px 0;
+      line-height: 1.5;
+    }
+
+    .message-content code {
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #f26532;
+    }
+
+    .message-content pre {
+      background: #f0ebe0;
+      padding: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 10px 0;
+      position: relative;
+    }
+
+    .code-block-header {
+      background: #e9dfca;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #d8c8aa;
+    }
+
+    .code-language {
+      font-size: 11px;
+      color: #6f614c;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-weight: 600;
+    }
+
+    .executed-badge {
+      background: #379A8B;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .message-content pre code {
+      background: none;
+      padding: 14px 16px;
+      display: block;
+      overflow-x: auto;
+      color: #4a4032;
+    }
+
+    .message-content strong {
+      font-weight: 600;
+      color: #2e2a24;
+    }
+
+    .message-content em {
+      font-style: italic;
+    }
+
+    .message-content a {
+      color: #f26532;
+      text-decoration: none;
+    }
+
+    .message-content a:hover {
+      text-decoration: underline;
+    }
+
+    .typing-indicator {
+      display: inline-flex;
+      gap: 4px;
+      padding: 12px 16px;
+    }
+
+    .typing-indicator span {
+      width: 8px;
+      height: 8px;
+      background: #d7c6a9;
+      border-radius: 50%;
+      animation: typing 1.4s infinite;
+    }
+
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes typing {
+      0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.5;
+      }
+      30% {
+        transform: translateY(-10px);
+        opacity: 1;
+      }
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      background: #f8f4eb;
+      border-top: 1px solid #e6dcc8;
+    }
+
+    #chatInput {
+      flex: 1;
+      border: 1px solid #d9c6a6;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      max-height: 120px;
+      transition: border-color 0.2s;
+      background: #fffdf7;
+      color: #2e2a24;
+    }
+
+    #chatInput:focus {
+      outline: none;
+      border-color: #f26532;
+    }
+
+    #chatInput:disabled {
+      background: #f2ecde;
+      cursor: not-allowed;
+    }
+
+    .btn-send {
+      background: #f26532;
+      color: white;
+      border: none;
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-send:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(242, 101, 50, 0.35);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Scrollbar Styling */
+    .chat-messages::-webkit-scrollbar,
+    #viz::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track,
+    #viz::-webkit-scrollbar-track {
+      background: #f2ebdd;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb,
+    #viz::-webkit-scrollbar-thumb {
+      background: #d7c6a9;
+      border-radius: 4px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb:hover,
+    #viz::-webkit-scrollbar-thumb:hover {
+      background: #c4af87;
+    }
+
+    /* D3 visualizations default styling */
+    #viz svg {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(45, 35, 20, 0.08);
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+    }
+
+    #viz text {
+      fill: #2e2a24;
+    }
+
+    #viz .axis path,
+    #viz .axis line {
+      stroke: #d8c8aa;
+    }
+
+    /* D3 Tooltip styling (created by charts) */
+    .d3-tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 10000;
+      line-height: 1.4;
+      max-width: 300px;
+    }
+
+    .d3-tooltip strong {
+      color: #3EBCD2;
+      font-weight: 600;
+    }
+
+    .d3-tooltip.show {
+      opacity: 1;
+    }
+
+    /* Smooth scrolling for overflow */
+    #viz {
+      scroll-behavior: smooth;
+      overflow-x: auto;
+      overflow-y: auto;
+    }
+
+    /* Better scrollbar visibility */
+    #viz::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    /* 🎨 Tool Execution Card Styling */
+    .tool-execution-card {
+      background: linear-gradient(135deg, #006BA2 0%, #3EBCD2 100%);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 12px 0;
+      box-shadow: 0 4px 20px rgba(0, 107, 162, 0.25);
+      animation: slideIn 0.3s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tool-execution-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #E3120B, #EBB434, #379A8B);
+      animation: shimmer 2s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: white;
+    }
+
+    .tool-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tool-icon svg {
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .tool-info {
+      flex: 1;
+    }
+
+    .tool-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 4px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .tool-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #EBB434;
+      display: inline-block;
+    }
+
+    .status-dot.pulsing {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .status-dot.complete {
+      background: #379A8B;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+      }
+    }
+
+    .tool-spinner {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+    }
+
+    .spinner {
+      width: 100%;
+      height: 100%;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .tool-params {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .params-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .params-content {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12px;
+      color: white;
+      line-height: 1.5;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .params-content code {
+      color: #B4BA39;
+      word-break: break-all;
+    }
+
+    .params-content pre {
+      margin: 0;
+      color: #3EBCD2;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Send icon SVG */
+    .send-icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* 📖 Scrollytelling Styles (Pudding.cool style) */
+    .scrolly-container {
+      position: relative;
+      width: 100%;
+    }
+
+    .scrolly-figure {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f4efe3;
+    }
+
+    .scrolly-article {
+      position: relative;
+      padding: 0;
+      margin: 0;
+    }
+
+    .scrolly-step {
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      padding: 2rem;
+      margin: 0;
+      position: relative;
+    }
+
+    .scrolly-step:first-child {
+      min-height: 100vh;
+    }
+
+    .scrolly-step:last-child {
+      min-height: 100vh;
+    }
+
+    .scrolly-step-content {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 500px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(230, 220, 200, 0.5);
+    }
+
+    .scrolly-step-content h2 {
+      margin: 0 0 1rem 0;
+      color: #2e2a24;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .scrolly-step-content h3 {
+      margin: 0 0 0.75rem 0;
+      color: #f26532;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .scrolly-step-content p {
+      margin: 0.5rem 0;
+      color: #4a4032;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .scrolly-step-content strong {
+      color: #f26532;
+      font-weight: 600;
+    }
+
+    .scrolly-step.is-active .scrolly-step-content {
+      box-shadow: 0 12px 32px rgba(242, 101, 50, 0.15);
+      border-color: #f26532;
+    }
+
+    /* Progress indicator for scrollytelling */
+    .scrolly-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #f26532, #006BA2, #379A8B);
+      transform-origin: 0 0;
+      transition: transform 0.2s ease-out;
+      z-index: 9999;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column-reverse;
+      }
+
+      .viz-section {
+        flex: 0 0 40%;
+        border-right: none;
+        border-top: 1px solid #e6dcc8;
+      }
+
+      .chat-sidebar {
+        flex: 1;
+      }
+
+      .pane-resizer {
+        display: none;
+      }
+
+      .example-prompts {
+        display: none;
+      }
+
+      .scrolly-step-content {
+        max-width: 100%;
+        padding: 1.5rem;
+      }
+
+      .scrolly-step {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="brand">
+          <span class="brand-mark">📊</span>
+          <span class="brand-name">D3 Visualization AI</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="explore" title="Quick data exploration and discovery">
+            <span class="mode-icon">📈</span>
+            <span class="mode-label">Explore</span>
+          </button>
+          <button class="mode-btn" data-mode="dashboard" title="Interactive multi-chart dashboards">
+            <span class="mode-icon">📊</span>
+            <span class="mode-label">Dashboard</span>
+          </button>
+          <button class="mode-btn" data-mode="story" title="Scrollytelling narratives (Pudding.cool style)">
+            <span class="mode-icon">📖</span>
+            <span class="mode-label">Story</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- Visualization Section -->
+      <div class="viz-section" id="vizSection">
+        <div class="viz-header">
+          <!-- Dashboard Navigation -->
+          <div id="dashboard-nav" style="display: none; align-items: center; gap: 8px; margin-left: auto;"></div>
+
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button class="btn-export" onclick="exportAsPNG()" title="Save as PNG image">
+              <span>💾 PNG</span>
+            </button>
+            <button class="btn-export" onclick="exportAsHTML()" title="Save as standalone HTML">
+              <span>🌐 HTML</span>
+            </button>
+          </div>
+        </div>
+        <div id="viz">
+          <div class="viz-placeholder">
+            <div class="viz-placeholder-icon">📈</div>
+            <div><strong>Your visualizations will appear here</strong></div>
+            <div style="margin-top: 8px; font-size: 14px;">Ask Claude to create a chart, and watch it render in real-time</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resizer -->
+      <div class="pane-resizer"></div>
+
+      <!-- Chat Section -->
+      <div class="chat-sidebar">
+        <div class="chat-messages" id="messages">
+          <div class="welcome-message">
+            <h2>👋 📈 Explore Mode</h2>
+            <p>Rapid EDA - Fast iterations, simple visualizations</p>
+          </div>
+        </div>
+
+        <div class="chat-input-container">
+          <textarea
+            id="chatInput"
+            placeholder="Ask me to create a visualization..."
+            rows="1"
+            onkeydown="handleKeyPress(event)"
+          ></textarea>
+          <button id="sendBtn" class="btn-send" onclick="sendMessage()">
+            <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
