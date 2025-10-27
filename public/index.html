@@ -634,6 +634,40 @@
       cursor: not-allowed;
     }
 
+    /* File Upload Styles */
+    .file-upload-container {
+      padding: 0 12px;
+    }
+
+    .file-upload-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-upload {
+      background: #34a853;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-upload:hover {
+      background: #2e7d42;
+      transform: translateY(-1px);
+    }
+
+    .file-name {
+      font-size: 12px;
+      color: #666;
+      font-style: italic;
+    }
+
     /* Scrollbar Styling */
     .chat-messages::-webkit-scrollbar,
     #viz::-webkit-scrollbar {
@@ -1083,6 +1117,27 @@
           <div class="welcome-message">
             <h2>👋 📈 Explore Mode</h2>
             <p>Rapid EDA - Fast iterations, simple visualizations</p>
+          </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="file-upload-container" style="margin-bottom: 15px;">
+          <div class="file-upload-wrapper">
+            <input 
+              type="file" 
+              id="csvFile" 
+              accept=".csv,.json,.txt" 
+              style="display: none;"
+              onchange="handleFileUpload(event)"
+            >
+            <button 
+              id="uploadBtn" 
+              class="btn-upload" 
+              onclick="document.getElementById('csvFile').click()"
+            >
+              📊 Upload CSV/Data File
+            </button>
+            <span id="fileName" class="file-name"></span>
           </div>
         </div>
 

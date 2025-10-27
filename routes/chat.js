@@ -62,7 +62,7 @@ async function callClaudeAPI(messages, mode) {
  * Handles streaming conversations with Claude including tool execution
  */
 export async function handleChat(req, res) {
-  const { message, conversationHistory, mode } = req.body;
+  const { message, conversationHistory, mode, uploadedData } = req.body;
 
   console.log('\n╔════════════════════════════════════════════════════════════════════════╗');
   console.log('║                      📨 NEW CHAT REQUEST                               ║');
@@ -70,10 +70,20 @@ export async function handleChat(req, res) {
   console.log('📝 User message:', message.substring(0, 150) + (message.length > 150 ? '...' : ''));
   console.log('📚 Conversation history length:', conversationHistory?.length || 0);
   console.log('🎯 Mode:', mode || 'explore (default)');
+  console.log('📊 Uploaded data:', uploadedData ? `${uploadedData.length} rows` : 'none');
 
   // Build messages array
   let messages = [...(conversationHistory || [])];
-  messages.push({ role: 'user', content: message });
+  
+  // Prepare user message content
+  let userContent = message;
+  if (uploadedData && uploadedData.length > 0) {
+    const columns = Object.keys(uploadedData[0]);
+    const sample = uploadedData.slice(0, 3);
+    userContent += `\n\n**UPLOADED DATA:**\n- ${uploadedData.length} rows\n- Columns: ${columns.join(', ')}\n- Sample data (first 3 rows):\n\`\`\`json\n${JSON.stringify(sample, null, 2)}\n\`\`\``;
+  }
+  
+  messages.push({ role: 'user', content: userContent });
   console.log('📨 Total messages in context:', messages.length);
 
   try {

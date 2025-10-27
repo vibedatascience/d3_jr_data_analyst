@@ -137,6 +137,72 @@ function handleKeyPress(event) {
   }
 }
 
+// Handle file upload
+let uploadedData = null;
+
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const fileName = document.getElementById('fileName');
+  fileName.textContent = `📁 ${file.name}`;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    
+    try {
+      if (file.name.endsWith('.csv')) {
+        // Parse CSV
+        uploadedData = parseCSV(content);
+        console.log('✅ CSV parsed:', uploadedData.slice(0, 3)); // Show first 3 rows
+        
+        // Auto-suggest a visualization
+        const columns = Object.keys(uploadedData[0] || {});
+        const suggestion = `I've uploaded ${file.name} with ${uploadedData.length} rows and columns: ${columns.join(', ')}. Create a chart to explore this data.`;
+        document.getElementById('chatInput').value = suggestion;
+        
+      } else if (file.name.endsWith('.json')) {
+        // Parse JSON
+        uploadedData = JSON.parse(content);
+        console.log('✅ JSON parsed:', uploadedData);
+        
+        const suggestion = `I've uploaded ${file.name}. Create a visualization from this JSON data.`;
+        document.getElementById('chatInput').value = suggestion;
+      }
+      
+      fileName.textContent += ' ✅ Ready';
+      
+    } catch (error) {
+      console.error('❌ File parsing error:', error);
+      fileName.textContent = `❌ Error reading ${file.name}`;
+      uploadedData = null;
+    }
+  };
+  
+  reader.readAsText(file);
+}
+
+// Simple CSV parser
+function parseCSV(csv) {
+  const lines = csv.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  
+  return lines.slice(1).map(line => {
+    const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+    const row = {};
+    headers.forEach((header, i) => {
+      let value = values[i] || '';
+      // Try to convert to number if possible
+      if (!isNaN(value) && value !== '') {
+        value = +value;
+      }
+      row[header] = value;
+    });
+    return row;
+  });
+}
+
 // Set example prompt
 function setPrompt(text) {
   document.getElementById('chatInput').value = text;
@@ -189,14 +255,23 @@ async function sendMessage() {
     currentMessageContent = '';
     let needNewTextBlock = false; // Track when we need a new text block after tool
 
+    // Prepare the request body
+    const requestBody = {
+      message,
+      conversationHistory: conversationHistory.slice(0, -1),
+      mode: currentMode  // ✅ Include current mode
+    };
+
+    // Include uploaded data if available
+    if (uploadedData) {
+      requestBody.uploadedData = uploadedData;
+      console.log('📤 Sending uploaded data:', uploadedData.length, 'rows');
+    }
+
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        conversationHistory: conversationHistory.slice(0, -1),
-        mode: currentMode  // ✅ Include current mode
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
