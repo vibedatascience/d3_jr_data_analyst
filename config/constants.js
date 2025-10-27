@@ -4,7 +4,7 @@
  */
 
 // Server configuration
-export const PORT = process.env.PORT || 3001;
+export const PORT = process.env.PORT || 3002;
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 // API configuration
