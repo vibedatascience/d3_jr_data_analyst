@@ -30,11 +30,11 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('\n═══════════════════════════════════════');
   console.log('🚀 D3.JS VISUALIZATION CHATBOT SERVER');
   console.log('═══════════════════════════════════════');
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`✅ Server running at http://0.0.0.0:${PORT}`);
   console.log(`✅ API key: ${ANTHROPIC_API_KEY ? '***configured***' : '⚠️  MISSING'}`);
   console.log('═══════════════════════════════════════\n');
 });
