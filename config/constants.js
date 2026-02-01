@@ -8,8 +8,8 @@ export const PORT = process.env.PORT || 10000;
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 // API configuration
-export const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
-export const MAX_TOKENS = 64000;
+export const CLAUDE_MODEL = 'claude-opus-4-5-20251101';
+export const MAX_TOKENS = 128000;
 export const ANTHROPIC_VERSION = '2023-06-01';
 export const ANTHROPIC_BETA = 'context-1m-2025-08-07';
 
