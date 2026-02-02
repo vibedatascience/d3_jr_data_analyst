@@ -9,10 +9,10 @@ export const TOOL_DEFINITIONS = [
 
 🚨 CRITICAL USAGE RULES:
 1. **FIRST**: Use this tool to FETCH and ANALYZE data from user-provided URLs OR CREATE DATASET USING UNFORMATTED DATA
-3. **CHECK TOOL RESULTS** - If previous execute_javascript returned dataId, DATA IS ALREADY SAVED!
-4. Use console.log() to output results - all output will be captured and returned
-5. Code runs in Node.js environment with fetch, Buffer, URL, etc. available
-6. USE THIS SPARINGLY AS IT COSTS 10000 USD PER TOOL CALL
+2. **CHECK TOOL RESULTS** - If previous execute_javascript returned dataId, DATA IS ALREADY SAVED!
+3. Use console.log() to output results - all output will be captured and returned
+4. Code runs in Node.js environment with fetch, Buffer, URL, etc. available
+5. Avoid redundant tool calls - if data is already fetched/saved, use it directly
 
 💾 **DATA PERSISTENCE - CRITICAL:**
 - If you **return** an array or object, it's AUTOMATICALLY SAVED with a dataId
@@ -60,8 +60,7 @@ const data = __STORED_DATA__;
 
 // Build your D3 chart with the saved data
 // No need to fetch() or hard-code anything!
-\`\`\`
-k`,
+\`\`\``,
     input_schema: {
       type: "object",
       properties: {

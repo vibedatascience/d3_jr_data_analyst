@@ -5,6 +5,10 @@ let currentMessageElement = null;
 let currentMessageContent = '';
 let currentMode = localStorage.getItem('vizMode') || 'explore'; // Default to explore mode
 
+// Limits to prevent memory issues
+const MAX_CONVERSATION_HISTORY = 50; // Max messages to keep in history
+const MAX_DASHBOARD_HISTORY = 20; // Max dashboards to keep in history
+
 // Mode configuration
 const MODE_CONFIG = {
   explore: {
@@ -140,12 +144,27 @@ function handleKeyPress(event) {
 // Handle file upload
 let uploadedData = null;
 
+// File size limits
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 function handleFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const fileName = document.getElementById('fileName');
   fileName.textContent = `📁 ${file.name}`;
+
+  // Check file size
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    console.error(`❌ File too large: ${sizeMB}MB (max: ${MAX_FILE_SIZE_MB}MB)`);
+    fileName.textContent = `❌ File too large (${sizeMB}MB). Max: ${MAX_FILE_SIZE_MB}MB`;
+    alert(`⚠️ File too large!\n\nYour file is ${sizeMB}MB, but the maximum allowed size is ${MAX_FILE_SIZE_MB}MB.\n\nPlease use a smaller file or reduce the data before uploading.`);
+    event.target.value = ''; // Clear the input
+    uploadedData = null;
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -183,22 +202,97 @@ function handleFileUpload(event) {
   reader.readAsText(file);
 }
 
-// Simple CSV parser
+// Robust CSV parser that handles quoted fields with commas, escaped quotes, etc.
 function parseCSV(csv) {
-  const lines = csv.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-  
-  return lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-    const row = {};
-    headers.forEach((header, i) => {
-      let value = values[i] || '';
-      // Try to convert to number if possible
-      if (!isNaN(value) && value !== '') {
-        value = +value;
+  const lines = [];
+  let currentLine = '';
+  let inQuotes = false;
+
+  // Split into lines, respecting quoted fields that may contain newlines
+  for (let i = 0; i < csv.length; i++) {
+    const char = csv[i];
+
+    if (char === '"') {
+      // Check for escaped quote ("")
+      if (inQuotes && csv[i + 1] === '"') {
+        currentLine += '"';
+        i++; // Skip next quote
+      } else {
+        inQuotes = !inQuotes;
+        currentLine += char;
       }
+    } else if (char === '\n' && !inQuotes) {
+      if (currentLine.trim()) {
+        lines.push(currentLine);
+      }
+      currentLine = '';
+    } else if (char === '\r' && !inQuotes) {
+      // Skip carriage returns
+    } else {
+      currentLine += char;
+    }
+  }
+
+  // Don't forget the last line
+  if (currentLine.trim()) {
+    lines.push(currentLine);
+  }
+
+  if (lines.length === 0) return [];
+
+  // Parse a single line into fields, respecting quotes
+  function parseLine(line) {
+    const fields = [];
+    let currentField = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // Escaped quote
+          currentField += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        fields.push(currentField.trim());
+        currentField = '';
+      } else {
+        currentField += char;
+      }
+    }
+
+    // Don't forget the last field
+    fields.push(currentField.trim());
+
+    return fields;
+  }
+
+  // Parse headers
+  const headers = parseLine(lines[0]);
+
+  // Parse data rows
+  return lines.slice(1).map(line => {
+    const values = parseLine(line);
+    const row = {};
+
+    headers.forEach((header, i) => {
+      let value = values[i] !== undefined ? values[i] : '';
+
+      // Try to convert to number if it looks like one
+      if (value !== '' && !isNaN(value) && value.trim() !== '') {
+        const num = Number(value);
+        if (!isNaN(num)) {
+          value = num;
+        }
+      }
+
       row[header] = value;
     });
+
     return row;
   });
 }
@@ -231,8 +325,16 @@ async function sendMessage() {
   // Add user message to chat
   addMessage('user', message);
 
-  // Add to conversation history
+  // Add to conversation history (with truncation to prevent memory bloat)
   conversationHistory.push({ role: 'user', content: message });
+  if (conversationHistory.length > MAX_CONVERSATION_HISTORY) {
+    // Keep the first message (often contains important context) and recent messages
+    conversationHistory = [
+      conversationHistory[0],
+      ...conversationHistory.slice(-MAX_CONVERSATION_HISTORY + 1)
+    ];
+    console.log(`📝 Conversation history truncated to ${MAX_CONVERSATION_HISTORY} messages`);
+  }
 
   // Show typing indicator
   const typingIndicator = document.createElement('div');
@@ -502,6 +604,13 @@ function executeD3Code(code, title = '', skipHistory = false) {
       };
 
       dashboardHistory.push(dashboard);
+
+      // Truncate dashboard history if needed
+      if (dashboardHistory.length > MAX_DASHBOARD_HISTORY) {
+        dashboardHistory = dashboardHistory.slice(-MAX_DASHBOARD_HISTORY);
+        console.log(`📊 Dashboard history truncated to ${MAX_DASHBOARD_HISTORY} entries`);
+      }
+
       currentDashboardIndex = dashboardHistory.length - 1;
 
       console.log(`📊 Saved to history (${dashboardHistory.length} total)`);
@@ -530,9 +639,9 @@ function executeD3Code(code, title = '', skipHistory = false) {
   }
 }
 
-// Send execution error to Claude for automatic fixing
+// Send execution error to Claude for fixing (requires user confirmation)
 function sendErrorToClaudeForFix(error, failedCode) {
-  console.log('🔧 Sending error to Claude for automatic fix...');
+  console.log('🔧 Visualization error detected, asking user for confirmation...');
 
   const errorMessage = `The dashboard code failed to execute with the following error:
 
@@ -550,14 +659,25 @@ ${failedCode}
 
 Please analyze the error and provide a corrected version of the code.`;
 
-  // Set the error message in the input field and trigger send
-  const chatInput = document.getElementById('chatInput');
-  chatInput.value = errorMessage;
+  // Ask user for confirmation before sending to Claude
+  const shouldFix = confirm(
+    `⚠️ Visualization Error\n\n` +
+    `Error: ${error.message}\n\n` +
+    `Would you like Claude to attempt an automatic fix?\n\n` +
+    `Click OK to send the error to Claude, or Cancel to handle it manually.`
+  );
 
-  // Trigger the send message function
-  setTimeout(() => {
-    sendMessage();
-  }, 100);
+  if (shouldFix) {
+    console.log('✅ User confirmed auto-fix, sending to Claude...');
+    const chatInput = document.getElementById('chatInput');
+    chatInput.value = errorMessage;
+
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  } else {
+    console.log('❌ User declined auto-fix');
+  }
 }
 
 // Dashboard navigation functions
